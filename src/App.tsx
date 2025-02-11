@@ -93,15 +93,21 @@ async function getGoogleSearchResultsInner(uniqueLinks: string[], query: string,
 
 async function parsePageInner(link: string) {
   try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => {
+      controller.abort("Timeout")
+    }, 15000)
 
     const response = await fetchX(hookUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ link, actionID: "parse_page" })
-    })
-
+      body: JSON.stringify({ link, actionID: "parse_page" }),
+      signal: controller.signal
+    },
+    )
+    clearTimeout(timeout)
     if (response.status != 200) {
       throw new Error('Failed to fetch')
     }
@@ -113,15 +119,22 @@ async function parsePageInner(link: string) {
     return data
   } catch (e) {
     console.log(e)
+    if (e == "Timeout") {
+      return {
+        current_market_size: 'Timeout',
+        future_market_size: 'Timeout',
+        quotes: ['Timeout']
+      }
+    }
     return {
-      current_market_size: 'N/A',
-      future_market_size: 'N/A',
-      quotes: ['N/A']
+      current_market_size: 'Failed',
+      future_market_size: 'Failed',
+      quotes: ['Failed']
     }
   }
 }
 
-async function parsePages(links: GroupedLinks) {
+async function parsePages(links: GroupedLinks, setParsing: (parsing: string[]) => void) {
   //normalize
   const normalizedLinks = (Object.keys(links) as (keyof GroupedLinks)[]).reduce((acc, key) => {
     return acc.concat(links[key].map((link) => ({ link, tier: key })))
@@ -129,8 +142,9 @@ async function parsePages(links: GroupedLinks) {
 
   const results = [] as FinalResultItem[]
 
-  for (let i = 0; i < normalizedLinks.length; i += 5) {
-    const slice = normalizedLinks.slice(i, i + 5)
+  for (let i = 0; i < normalizedLinks.length; i += 10) {
+    const slice = normalizedLinks.slice(i, i + 10)
+    setParsing(slice.map(({ link }) => link))
     const parsed = await Promise.all(slice.map(({ link, tier }) => {
       return (async () => {
         const d = await parsePageInner(link)
@@ -145,6 +159,7 @@ async function parsePages(links: GroupedLinks) {
     }))
     results.push(...parsed)
   }
+  setParsing([])
   return results;
 }
 
@@ -163,6 +178,7 @@ async function groupLinks(links: string[], topic: string) {
 function App() {
   const [loading, setLoading] = useState<LoadingTarget | null>(null)
   const [finalResult, setFinalResult] = useState<FinalResultItem[] | null>(null)
+  const [currentParsing, setCurrentParsing] = useState<string[] | null>([])
   const [formData, setFormData] = useState({
     topic: '',
     year: '',
@@ -188,6 +204,7 @@ function App() {
           e.preventDefault()
           if (!loading) {
             setLoading(LoadingTarget.GET_QUERY)
+            setFinalResult(null)
             try {
               const query = await getGoogleSearchQuery(formData);
               console.log(query);
@@ -196,7 +213,7 @@ function App() {
               setLoading(LoadingTarget.GROUP_BY_TIER);
               const tieredLinks = await groupLinks(links, formData.topic);
               setLoading(LoadingTarget.PARSE_PAGE);
-              const finalResult = await parsePages(tieredLinks);
+              const finalResult = await parsePages(tieredLinks, setCurrentParsing);
               setLoading(null);
               setFinalResult(finalResult);
             } catch (e) {
@@ -239,12 +256,19 @@ function App() {
               <h6>{loading}</h6>
             </div>
           }
+          {
+            currentParsing &&
+            <div className='parsing'>
+              {currentParsing.map((link, idx) => <p key={idx}>{shortenLink(link)}</p>)}
+            </div>
+          }
           <div>
             {
               finalResult &&
               <table>
                 <thead>
                   <tr>
+                    <th>SN</th>
                     <th>Tier</th>
                     <th>Source</th>
                     <th>Current Value</th>
@@ -253,9 +277,10 @@ function App() {
                   </tr>
                 </thead>
                 <tbody>{
-                  finalResult.map((item) => (
+                  finalResult.map((item, idx) => (
                     <tr key={item.source}>
-                      <td>{item.tier}</td>
+                      <td>{idx + 1}</td>
+                      <td>{item.tier.split("_").map((x) => x.toLocaleUpperCase()).join(" ")}</td>
                       <td><a href={item.source}>{shortenLink(item.source)}</a></td>
                       <td>{item.current_value}</td>
                       <td>{item.future_value}</td>

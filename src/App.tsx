@@ -15,7 +15,7 @@ type FinalResultItem = {
   tier: string;
   source: string;
   current_value: string;
-  future_value: string;
+  // future_value: string;
   quote: string[]
 }
 
@@ -37,22 +37,24 @@ const shortenLink = (link: string) => {
 
 async function getGoogleSearchQuery(parameters: {
   topic: string,
-  year: string,
-  country: string,
-  region: string,
+  // year: string,
+  // country: string,
+  // region: string,
 }) {
-  const response = await fetchX(hookUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ ...parameters, actionID: "get_search_query", region: parameters.region ? parameters.region : 'Not Specified' })
-  })
-  const data = await response.json()
-  if (!data.search_query) {
-    throw new Error('No search query found')
-  }
-  return data.search_query;
+  // const {year, topic} = parameters
+  // const response = await fetchX(hookUrl, {
+  //   method: 'POST',
+  //   headers: {
+  //     'Content-Type': 'application/json'
+  //   },
+  //   body: JSON.stringify({ ...parameters, actionID: "get_search_query", region: parameters.region ? parameters.region : 'Not Specified' })
+  // })
+  // const data = await response.json()
+  // if (!data.search_query) {
+  //   throw new Error('No search query found')
+  // }
+  // return year + " " + topic;
+  return parameters.topic
 }
 
 async function getGoogleSearchResults(query: string, results: number) {
@@ -91,12 +93,31 @@ async function getGoogleSearchResultsInner(uniqueLinks: string[], query: string,
   return uniqueLinks
 }
 
-async function parsePageInner(link: string) {
+type ParsePageRes = {
+  current_market_size: string;
+  future_market_size: string;
+  quotes: string[]
+}
+
+function parsedCacheFactory() {
+  const cache = new Map<string, ParsePageRes>()
+  return {
+    get: (link: string) => cache.get(link),
+    set: (link: string, item: ParsePageRes) => cache.set(link, item),
+    clear: () => cache.clear(),
+  }
+}
+
+async function parsePageInner(link: string): Promise<ParsePageRes> {
+  const cache = parsedCacheFactory()
+  if (cache.get(link)) {
+    return cache.get(link)!
+  }
   try {
     const controller = new AbortController()
     const timeout = setTimeout(() => {
       controller.abort("Timeout")
-    }, 15000)
+    }, 20000)
 
     const response = await fetchX(hookUrl, {
       method: 'POST',
@@ -111,21 +132,33 @@ async function parsePageInner(link: string) {
     if (response.status != 200) {
       throw new Error('Failed to fetch')
     }
+
     const data = await response.json() as {
       current_market_size: string;
       future_market_size: string;
       quotes: string[]
     }
+    console.log("Link : ", link, "Data : ", data)
+    if (typeof data === "string") {
+      throw new Error('Failed to fetch')
+    }
     return data
   } catch (e) {
     console.log(e)
     if (e == "Timeout") {
+      console.log('Timeout :', link)
       return {
         current_market_size: 'Timeout',
         future_market_size: 'Timeout',
         quotes: ['Timeout']
       }
     }
+    console.log('Failed :', link)
+    cache.set(link, {
+      current_market_size: 'Failed',
+      future_market_size: 'Failed',
+      quotes: ['Failed']
+    })
     return {
       current_market_size: 'Failed',
       future_market_size: 'Failed',
@@ -152,7 +185,7 @@ async function parsePages(links: GroupedLinks, setParsing: (parsing: string[]) =
           tier,
           source: link,
           current_value: d.current_market_size,
-          future_value: d.future_market_size,
+          // future_value: d.future_market_size,
           quote: d.quotes
         }
       })()
@@ -228,7 +261,7 @@ function App() {
             Topic:
             <input type="text" name="topic" value={formData.topic} onChange={handleChange} />
           </label>
-          <br />
+          {/* <br />
           <label>
             Year:
             <input type="number" name="year" value={formData.year} onChange={handleChange} />
@@ -242,7 +275,7 @@ function App() {
           <label>
             Region:
             <input type="text" name="region" value={formData.region} onChange={handleChange} />
-          </label>
+          </label> */}
           <br />
           <label>
             Number of Results:
@@ -271,8 +304,12 @@ function App() {
                     <th>SN</th>
                     <th>Tier</th>
                     <th>Source</th>
-                    <th>Current Value</th>
-                    <th>Future Value</th>
+                    <th>Value</th>
+                    {
+                      /**  
+                      <th>Future Value</th>
+                      **/
+                    }
                     <th>Quote</th>
                   </tr>
                 </thead>
@@ -280,14 +317,19 @@ function App() {
                   finalResult.map((item, idx) => (
                     <tr key={item.source}>
                       <td>{idx + 1}</td>
-                      <td>{item.tier.split("_").map((x) => x.toLocaleUpperCase()).join(" ")}</td>
-                      <td><a href={item.source}>{shortenLink(item.source)}</a></td>
+                      <td>{item.tier.split("_")[1]}</td>
+                      <td><a href={getTextFragmentLink(item.source, [item.quote[0]])} target="_blank">{shortenLink(item.source)}</a></td>
                       <td>{item.current_value}</td>
-                      <td>{item.future_value}</td>
+                      {/* <td>{item.future_value}</td> */}
                       <td>
-                        <ul>
-                          {item.quote.map((quote, i) => <li key={i}>{quote}</li>)}
-                        </ul>
+                        {/* <ul> */}
+                        {/* {item.quote.map((quote, i) => <li key={i}>{quote}</li>)} */}
+                        {/* </ul> */}
+                        {
+                          <p>
+                            {item.quote[0]}
+                          </p>
+                        }
                       </td>
                     </tr>
                   ))}
@@ -299,6 +341,14 @@ function App() {
       </div>
     </>
   )
+}
+
+function getTextFragmentLink(link: string, fragments: string[]) {
+  let linkOut = link + "#:~:text=";
+  for (const fragment of fragments) {
+    linkOut = `${linkOut}${encodeURIComponent(fragment)}&`;
+  }
+  return linkOut;
 }
 
 export default App

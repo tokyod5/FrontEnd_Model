@@ -1,6 +1,7 @@
 import { useState, type ChangeEvent } from 'react'
 import './App.css'
 import fetchX from './fetch_util';
+import { MultiSelect } from '@mantine/core';
 
 enum LoadingTarget {
   GET_QUERY = "Getting Query",
@@ -68,7 +69,7 @@ async function getGoogleSearchResultsInner(uniqueLinks: string[], query: string,
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ query, start_index: startIndex, actionID: "search" })
+    body: JSON.stringify({ query: `${query} -site:statista.com`, start_index: startIndex, actionID: "search" })
   })
   const data = await response.json() as {
     items: {
@@ -220,6 +221,8 @@ function App() {
     results: ''
   })
 
+  const [filter, setFilter] = useState(["tier_1", "tier_2", "tier_3"])
+
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target
     setFormData({
@@ -227,6 +230,7 @@ function App() {
       [name]: value
     })
   }
+
 
 
 
@@ -264,17 +268,17 @@ function App() {
           {/* <br />
           <label>
             Year:
-            <input type="number" name="year" value={formData.year} onChange={handleChange} />
+            <Input type="number" name="year" value={formData.year} onChange={handleChange} />
           </label>
           <br />
           <label>
             Country:
-            <input type="text" name="country" value={formData.country} onChange={handleChange} />
+            <Input type="text" name="country" value={formData.country} onChange={handleChange} />
           </label>
           <br />
           <label>
             Region:
-            <input type="text" name="region" value={formData.region} onChange={handleChange} />
+            <Input type="text" name="region" value={formData.region} onChange={handleChange} />
           </label> */}
           <br />
           <label>
@@ -298,6 +302,22 @@ function App() {
           <div>
             {
               finalResult &&
+              <div
+                style={{
+                  marginBottom: '1rem',
+                  width: '400px',
+                }}
+              >
+                <MultiSelect
+                  label='Filter by tier'
+                  size='lg'
+                  data={[{ label: "Tier 1", value: "tier_1" }, { label: "Tier 2", value: "tier_2" }, { label: "Tier 3", value: "tier_3" }]}
+                  value={filter}
+                  onChange={setFilter}
+                />
+              </div>
+            }
+            {finalResult &&
               <table>
                 <thead>
                   <tr>
@@ -314,7 +334,7 @@ function App() {
                   </tr>
                 </thead>
                 <tbody>{
-                  finalResult.map((item, idx) => (
+                  finalResult.map((item, idx) => filter.includes(item.tier) ? (
                     <tr key={item.source}>
                       <td>{idx + 1}</td>
                       <td>{item.tier.split("_")[1]}</td>
@@ -332,11 +352,12 @@ function App() {
                         }
                       </td>
                     </tr>
-                  ))}
+                  ) : null)}
                 </tbody>
               </table>
             }
           </div>
+
         </form>
       </div>
     </>

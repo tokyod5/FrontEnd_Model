@@ -4,6 +4,9 @@ import fetchX from './fetch_util';
 import { MultiSelect } from '@mantine/core';
 import { ArrowDownIcon, ArrowUpIcon } from '@radix-ui/react-icons';
 
+
+const MAX_RESULTS = 20;
+
 enum LoadingTarget {
   GET_QUERY = "Getting Query",
   DO_SEARCH = "Searching",
@@ -241,6 +244,12 @@ function App() {
     results: ''
   })
 
+  const error = useMemo(() => {
+    return {
+      results: formData.results !== '' && Number(formData.results) > MAX_RESULTS ? "For testing purposes, the max number of results is " + MAX_RESULTS : undefined
+    }
+  }, [formData])
+
   const [filter, setFilter] = useState(["1", "2", "3"])
   const [sort, setSort] = useState<{ key: keyof FinalResultItem, direction: "asc" | "desc" }>({ key: "googleOrder", direction: "asc" })
   const sortedData = useMemo(() => {
@@ -265,7 +274,11 @@ function App() {
       <div>
         <form onSubmit={async (e) => {
           e.preventDefault()
-          if (!loading) {
+          if (formData.results === '') {
+            formData.results = '10'
+            setFormData({ ...formData, results: '10' })
+          }
+          if (!loading && Number(formData.results) <= MAX_RESULTS) {
             setLoading(LoadingTarget.GET_QUERY)
             setFinalResult(null)
             try {
@@ -297,7 +310,10 @@ function App() {
             <input type="number" name="results" value={formData.results} onChange={handleChange} />
           </label>
           <br />
-          <button type="submit" disabled={!!loading}>Submit</button>
+          <div className='error'>
+            <h3>{error.results}</h3>
+          </div>
+          <button type="submit" disabled={!!loading || !!error.results}>Submit</button>
           {
             loading &&
             <div className='loading'>

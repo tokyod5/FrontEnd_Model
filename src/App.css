@@ -159,6 +159,18 @@ button:hover {
   background-color: #0056b3;
 }
 
+button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
 .parsing {
   margin: auto;
+}
+
+.error {
+  color: red;
+  font-size: 0.9em;
+  margin: auto;
+  margin-top: 5px;
 }

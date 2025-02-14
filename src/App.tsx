@@ -1,7 +1,8 @@
-import { useState, type ChangeEvent } from 'react'
+import { useMemo, useState, type ChangeEvent } from 'react'
 import './App.css'
 import fetchX from './fetch_util';
 import { MultiSelect } from '@mantine/core';
+import { ArrowDownIcon, ArrowUpIcon } from '@radix-ui/react-icons';
 
 enum LoadingTarget {
   GET_QUERY = "Getting Query",
@@ -13,17 +14,18 @@ enum LoadingTarget {
 
 
 type FinalResultItem = {
-  tier: string;
+  tier: number;
   source: string;
   current_value: string;
+  googleOrder: number;
   // future_value: string;
   quote: string[]
 }
 
 type GroupedLinks = {
-  tier_1: string[],
-  tier_2: string[],
-  tier_3: string[],
+  tier_1: { link: string, googleOrder: number }[],
+  tier_2: { link: string, googleOrder: number }[],
+  tier_3: { link: string, googleOrder: number }[],
 }
 
 
@@ -59,7 +61,9 @@ async function getGoogleSearchQuery(parameters: {
 }
 
 async function getGoogleSearchResults(query: string, results: number) {
-  return await getGoogleSearchResultsInner([], query, 0, results)
+  const d = await getGoogleSearchResultsInner([], query, 0, results)
+  console.log("Links from google", d);
+  return d
 }
 
 async function getGoogleSearchResultsInner(uniqueLinks: string[], query: string, startIndex: number, results: number) {
@@ -172,22 +176,28 @@ async function parsePages(links: GroupedLinks, setParsing: (parsing: string[]) =
   //normalize
   const normalizedLinks = (Object.keys(links) as (keyof GroupedLinks)[]).reduce((acc, key) => {
     return acc.concat(links[key].map((link) => ({ link, tier: key })))
-  }, [] as { link: string, tier: string }[])
+  }, [] as {
+    link: {
+      link: string;
+      googleOrder: number;
+    }, tier: string
+  }[])
 
   const results = [] as FinalResultItem[]
 
   for (let i = 0; i < normalizedLinks.length; i += 10) {
     const slice = normalizedLinks.slice(i, i + 10)
-    setParsing(slice.map(({ link }) => link))
+    setParsing(slice.map(({ link }) => link.link))
     const parsed = await Promise.all(slice.map(({ link, tier }) => {
       return (async () => {
-        const d = await parsePageInner(link)
+        const d = await parsePageInner(link.link)
         return {
-          tier,
-          source: link,
+          tier: Number(tier.split("_")[1]),
+          source: link.link,
           current_value: d.current_market_size,
           // future_value: d.future_market_size,
-          quote: d.quotes
+          quote: d.quotes,
+          googleOrder: link.googleOrder
         }
       })()
     }))
@@ -197,7 +207,7 @@ async function parsePages(links: GroupedLinks, setParsing: (parsing: string[]) =
   return results;
 }
 
-async function groupLinks(links: string[], topic: string) {
+async function groupLinks(links: string[], topic: string): Promise<GroupedLinks> {
   const response = await fetchX(hookUrl, {
     method: 'POST',
     headers: {
@@ -205,8 +215,18 @@ async function groupLinks(links: string[], topic: string) {
     },
     body: JSON.stringify({ links, topic, actionID: "group_tiers" })
   })
-  const data = await response.json() as GroupedLinks
-  return data
+  const data = await response.json() as {
+    tier_1: string[],
+    tier_2: string[],
+    tier_3: string[]
+  }
+
+  return (Object.keys(data) as (keyof typeof data)[]).reduce((acc, key) => {
+    return {
+      ...acc,
+      [key]: data[key].map((link) => ({ link, googleOrder: links.indexOf(link) }))
+    }
+  }, {} as GroupedLinks)
 }
 
 function App() {
@@ -221,7 +241,13 @@ function App() {
     results: ''
   })
 
-  const [filter, setFilter] = useState(["tier_1", "tier_2", "tier_3"])
+  const [filter, setFilter] = useState(["1", "2", "3"])
+  const [sort, setSort] = useState<{ key: keyof FinalResultItem, direction: "asc" | "desc" }>({ key: "googleOrder", direction: "asc" })
+  const sortedData = useMemo(() => {
+    return finalResult ? finalResult.toSorted((a, b) => {
+      return (Number(a[sort.key]) - Number(b[sort.key])) * (sort.direction === "asc" ? 1 : -1)
+    }) : []
+  }, [finalResult, sort])
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target
@@ -265,21 +291,6 @@ function App() {
             Topic:
             <input type="text" name="topic" value={formData.topic} onChange={handleChange} />
           </label>
-          {/* <br />
-          <label>
-            Year:
-            <Input type="number" name="year" value={formData.year} onChange={handleChange} />
-          </label>
-          <br />
-          <label>
-            Country:
-            <Input type="text" name="country" value={formData.country} onChange={handleChange} />
-          </label>
-          <br />
-          <label>
-            Region:
-            <Input type="text" name="region" value={formData.region} onChange={handleChange} />
-          </label> */}
           <br />
           <label>
             Number of Results:
@@ -311,7 +322,7 @@ function App() {
                 <MultiSelect
                   label='Filter by tier'
                   size='lg'
-                  data={[{ label: "Tier 1", value: "tier_1" }, { label: "Tier 2", value: "tier_2" }, { label: "Tier 3", value: "tier_3" }]}
+                  data={[{ label: "Tier 1", value: "1" }, { label: "Tier 2", value: "2" }, { label: "Tier 3", value: "3" }]}
                   value={filter}
                   onChange={setFilter}
                 />
@@ -321,8 +332,49 @@ function App() {
               <table>
                 <thead>
                   <tr>
-                    <th>SN</th>
-                    <th>Tier</th>
+                    <th>
+                      <div
+                        role='button'
+                        onClick={() => {
+                          setSort({
+                            key: "googleOrder",
+                            direction: sort.direction === "asc" ? "desc" : "asc"
+                          })
+                        }}
+                      >
+                        <p>
+                          Google Order
+                        </p>
+                        {
+                          sort.key === "googleOrder" && sort.direction === "asc" && <ArrowUpIcon></ArrowUpIcon>
+                        }
+                        {
+                          sort.key === "googleOrder" && sort.direction === "desc" && <ArrowDownIcon></ArrowDownIcon>
+                        }
+                      </div>
+                    </th>
+                    <th>
+                      <div
+                        role='button'
+                        onClick={() => {
+                          setSort({
+                            key: "tier",
+                            direction: sort.direction === "asc" ? "desc" : "asc"
+                          })
+                        }}
+                      >
+                        <p>
+                          Tier
+                        </p>
+                        {
+                          sort.key === "tier" && sort.direction === "asc" && <ArrowUpIcon></ArrowUpIcon>
+                        }
+                        {
+                          sort.key === "tier" && sort.direction === "desc" && <ArrowDownIcon></ArrowDownIcon>
+                        }
+                      </div>
+
+                    </th>
                     <th>Source</th>
                     <th>Value</th>
                     {
@@ -334,10 +386,10 @@ function App() {
                   </tr>
                 </thead>
                 <tbody>{
-                  finalResult.map((item, idx) => filter.includes(item.tier) ? (
+                  sortedData.map((item) => filter.includes(item.tier.toString()) ? (
                     <tr key={item.source}>
-                      <td>{idx + 1}</td>
-                      <td>{item.tier.split("_")[1]}</td>
+                      <td>{item.googleOrder + 1}</td>
+                      <td>{item.tier}</td>
                       <td><a href={getTextFragmentLink(item.source, [item.quote[0]])} target="_blank">{shortenLink(item.source)}</a></td>
                       <td>{item.current_value}</td>
                       {/* <td>{item.future_value}</td> */}

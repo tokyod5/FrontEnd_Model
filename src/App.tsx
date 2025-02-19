@@ -255,12 +255,9 @@ const SlideInOut = {
     opacity: 0,
     transform: 'translateX(100px)'
   },
-  common: {
-  },
+  common: {},
   transitionProperty: 'transform, opacity',
-
 }
-
 
 
 function App() {
@@ -320,16 +317,28 @@ function App() {
           alt="Data Hawk Logo"
         /> */}
       {/* </Center> */}
-      <Stack h={"100%"} align='center' justify='flex-start' p={5}>
+      <Stack h={"100%"} align='center' justify='flex-start' gap={30}>
         {/* <Title mb={finalResult ? 0 : 300} order={1} className={`!text-5xl transition-all ${finalResult ? "translate-y-[0px]" : progress == UserProgress.LOADING? "translate-y-[150px]": "translate-y-[300px]"}`}>Data Hawk</Title> */}
-        <Image
-          mt={finalResult ? 30 : 300}
-          // className={`!text-5xl transition-all ${finalResult ? "translate-y-[0px]" : progress == UserProgress.LOADING? "translate-y-[150px]": "translate-y-[300px]"}`}
-          src={logo1}
-          w={400}
-          h={200}
-          alt="Data Hawk Logo"
-        />
+        <Stack align='center' justify='center' gap={50}>
+          <Image
+            mt={finalResult ? 30 : 300}
+            // className={`!text-5xl transition-all ${finalResult ? "translate-y-[0px]" : progress == UserProgress.LOADING? "translate-y-[150px]": "translate-y-[300px]"}`}
+            src={logo1}
+            w={150}
+            h={70}
+            alt="Data Hawk Logo"
+          />
+          <Text
+            className='!font-sans !-mt-10 !text-4xl !text-[#545454] !font-bold !tracking-[10px]'
+          >
+            DATA HAWK
+          </Text>
+          <Text
+            className='!font-sans !-mt-10 !text-xl !text-[#545454] !font-bold'
+          >
+            Automate your research
+          </Text>
+        </Stack>
         <Transition
           mounted={progress === UserProgress.START}
           transition="fade-up"

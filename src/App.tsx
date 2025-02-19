@@ -374,7 +374,6 @@ function App() {
               justify='flex-end'
             >
               <Title order={3}>Enter you topic</Title>
-              <Text>Example: 2022 UAE construction market size</Text>
               <TextInput size='xl'
                 classNames={
                   {
@@ -384,6 +383,8 @@ function App() {
                 value={formData.topic} onChange={(e) => {
                   setFormData({ ...formData, topic: e.currentTarget.value })
                 }} />
+              <Text>Example: 2022 UAE construction market size</Text>
+
               <Button
                 size='xl' className='' radius={20}
                 onClick={() => {
@@ -420,7 +421,7 @@ function App() {
                 }
                 error={formData.results > 20 ? "Max 20 results" : undefined}
                 rightSection={<div></div>}
-                value={formData.results} 
+                value={formData.results}
                 onChange={(e) => {
                   setFormData({ ...formData, results: Number(e) })
                 }} />

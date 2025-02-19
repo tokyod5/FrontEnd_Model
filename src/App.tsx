@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import './App.css';
 import fetchX from './fetch_util';
-import { Button, Container, MultiSelect, Text, Stack, Title, Group, Transition, NumberInput, Table, NavLink, TextInput } from '@mantine/core';
+import { Button, Container, MultiSelect, Text, Stack, Title, Group, Transition, NumberInput, Table, NavLink, TextInput, Image } from '@mantine/core';
 import { ArrowDownIcon, ArrowRightIcon, ArrowUpIcon } from '@radix-ui/react-icons';
 import { useViewportSize } from '@mantine/hooks';
-
+import logo1 from "./assets/logo_1.png";
 
 const MAX_RESULTS = 20;
 
@@ -276,16 +276,16 @@ function App() {
   }, [finalResult, sort, filter])
   const { width } = useViewportSize()
   const [formData, setFormData] = useState({
-    topic: '2022 UAE construction market size',
-    resultsAsString: '10',
+    topic: '',
     results: 10
   })
+  type T = typeof formData
   const [progress, setProgress] = useState(UserProgress.NONE)
   useEffect(() => {
     setProgress(UserProgress.START)
   }, [])
 
-  const search = useCallback(async () => {
+  const search = async (loading: LoadingTarget | null, formData: T) => {
     if (!loading && Number(formData.results) <= MAX_RESULTS) {
       setLoading(LoadingTarget.GET_QUERY)
       setFinalResult(null)
@@ -306,12 +306,30 @@ function App() {
         alert('Error');
       }
     }
-  }, [formData, loading])
+  }
 
   return (
     <Container fluid={true} h={"100vh"}>
-      <Stack h={"100%"} align='center' justify='start' p={5}>
-        <Title mb={finalResult ? 0 : 300} order={1} className={`!text-5xl transition-all ${finalResult ? "translate-y-[0px]" : progress == UserProgress.LOADING? "translate-y-[150px]": "translate-y-[300px]"}`}>Data Hawk</Title>
+      {/* <Center> */}
+      {/* <Image
+          // mb={finalResult ? 0 : 300}
+          className={`!text-5xl transition-all ${finalResult ? "translate-y-[0px]" : progress == UserProgress.LOADING? "translate-y-[150px]": "translate-y-[300px]"}`}
+          src={logo1}
+          w={400}
+          h={200}
+          alt="Data Hawk Logo"
+        /> */}
+      {/* </Center> */}
+      <Stack h={"100%"} align='center' justify='flex-start' p={5}>
+        {/* <Title mb={finalResult ? 0 : 300} order={1} className={`!text-5xl transition-all ${finalResult ? "translate-y-[0px]" : progress == UserProgress.LOADING? "translate-y-[150px]": "translate-y-[300px]"}`}>Data Hawk</Title> */}
+        <Image
+          mt={finalResult ? 30 : 300}
+          // className={`!text-5xl transition-all ${finalResult ? "translate-y-[0px]" : progress == UserProgress.LOADING? "translate-y-[150px]": "translate-y-[300px]"}`}
+          src={logo1}
+          w={400}
+          h={200}
+          alt="Data Hawk Logo"
+        />
         <Transition
           mounted={progress === UserProgress.START}
           transition="fade-up"
@@ -322,7 +340,7 @@ function App() {
             return <Stack
               style={style}
             >
-              <Title order={2} m={20}>Automate your research</Title>
+              {/* <Title order={2} m={20}>Automate your research</Title> */}
               <Button
                 size='xl' className='' radius={20}
                 onClick={() => {
@@ -356,6 +374,7 @@ function App() {
               justify='flex-end'
             >
               <Title order={3}>Enter you topic</Title>
+              <Text>Example: 2022 UAE construction market size</Text>
               <TextInput size='xl'
                 classNames={
                   {
@@ -392,7 +411,7 @@ function App() {
               align='center'
               justify='start'
             >
-              <Title order={3}>Required number of results</Title>
+              <Title order={3}>Required number of results {formData.results}</Title>
               <NumberInput max={20} size='xl'
                 classNames={
                   {
@@ -401,7 +420,8 @@ function App() {
                 }
                 error={formData.results > 20 ? "Max 20 results" : undefined}
                 rightSection={<div></div>}
-                value={formData.resultsAsString} onChange={(e) => {
+                value={formData.results} 
+                onChange={(e) => {
                   setFormData({ ...formData, results: Number(e) })
                 }} />
 
@@ -409,7 +429,7 @@ function App() {
                 size='xl' className='' radius={20}
                 onClick={() => {
                   setProgress(UserProgress.LOADING)
-                  search()
+                  search(loading, formData)
                 }}
                 disabled={formData.results === 0}
                 style={styles}
@@ -465,7 +485,7 @@ function App() {
                 />
                 <Table
                   // style={style}
-                  striped
+                  // striped
                   w={"100%"}
                 >
                   <Table.Thead>

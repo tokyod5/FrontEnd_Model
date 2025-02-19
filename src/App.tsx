@@ -411,7 +411,7 @@ function App() {
               align='center'
               justify='start'
             >
-              <Title order={3}>Required number of results {formData.results}</Title>
+              <Title order={3}>Required number of results</Title>
               <NumberInput max={20} size='xl'
                 classNames={
                   {

@@ -8,9 +8,11 @@ import { MantineProvider } from '@mantine/core';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <MantineProvider theme={{
-      fontFamily:"'Slabo 13px', serif"
-    }}>
+    <MantineProvider
+      defaultColorScheme='light'
+      theme={{
+        fontFamily: "'Slabo 13px', serif",
+      }}>
       <App />
     </MantineProvider>
   </StrictMode >,

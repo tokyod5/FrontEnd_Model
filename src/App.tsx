@@ -1,18 +1,13 @@
-import { useMemo, useState, type ChangeEvent } from 'react'
-import './App.css'
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import './App.css';
 import fetchX from './fetch_util';
-import { MultiSelect } from '@mantine/core';
-import { ArrowDownIcon, ArrowUpIcon } from '@radix-ui/react-icons';
+import { Button, Container, MultiSelect, Text, Stack, Title, Group, Transition, NumberInput, Table, NavLink, TextInput } from '@mantine/core';
+import { ArrowDownIcon, ArrowRightIcon, ArrowUpIcon } from '@radix-ui/react-icons';
+import { useViewportSize } from '@mantine/hooks';
 
 
 const MAX_RESULTS = 20;
 
-enum LoadingTarget {
-  GET_QUERY = "Getting Query",
-  DO_SEARCH = "Searching",
-  GROUP_BY_TIER = "Grouping",
-  PARSE_PAGE = "Parsing",
-}
 
 
 
@@ -66,6 +61,10 @@ async function getGoogleSearchQuery(parameters: {
 async function getGoogleSearchResults(query: string, results: number) {
   const d = await getGoogleSearchResultsInner([], query, 0, results)
   console.log("Links from google", d);
+  //block for 2 seconds to give realistic loading time
+  await new Promise((resolve) => {
+    setTimeout(resolve, 2000)
+  })
   return d
 }
 
@@ -105,6 +104,13 @@ type ParsePageRes = {
   current_market_size: string;
   future_market_size: string;
   quotes: string[]
+}
+
+enum LoadingTarget {
+  GET_QUERY = "Getting Query",
+  DO_SEARCH = "Searching",
+  GROUP_BY_TIER = "Grouping",
+  PARSE_PAGE = "Parsing",
 }
 
 function parsedCacheFactory() {
@@ -232,205 +238,335 @@ async function groupLinks(links: string[], topic: string): Promise<GroupedLinks>
   }, {} as GroupedLinks)
 }
 
+enum UserProgress {
+  NONE,
+  START,
+  ENTER_QUERY,
+  SELECT_RESULTS,
+  LOADING
+}
+
+const SlideInOut = {
+  in: {
+    opacity: 1,
+    transform: 'translateX(0)'
+  },
+  out: {
+    opacity: 0,
+    transform: 'translateX(100px)'
+  },
+  common: {
+  },
+  transitionProperty: 'transform, opacity',
+
+}
+
+
+
 function App() {
   const [loading, setLoading] = useState<LoadingTarget | null>(null)
   const [finalResult, setFinalResult] = useState<FinalResultItem[] | null>(null)
-  const [currentParsing, setCurrentParsing] = useState<string[] | null>([])
-  const [formData, setFormData] = useState({
-    topic: '',
-    year: '',
-    country: '',
-    region: '',
-    results: ''
-  })
-
-  const error = useMemo(() => {
-    return {
-      results: formData.results !== '' && Number(formData.results) > MAX_RESULTS ? "For testing purposes, the max number of results is " + MAX_RESULTS : undefined
-    }
-  }, [formData])
-
+  // const [ _ ,setCurrentParsing] = useState<string[] | null>([])
   const [filter, setFilter] = useState(["1", "2", "3"])
   const [sort, setSort] = useState<{ key: keyof FinalResultItem, direction: "asc" | "desc" }>({ key: "googleOrder", direction: "asc" })
   const sortedData = useMemo(() => {
-    return finalResult ? finalResult.toSorted((a, b) => {
+    return finalResult ? finalResult.filter((r) => filter.includes(r.tier.toString())).toSorted((a, b) => {
       return (Number(a[sort.key]) - Number(b[sort.key])) * (sort.direction === "asc" ? 1 : -1)
     }) : []
-  }, [finalResult, sort])
+  }, [finalResult, sort, filter])
+  const { width } = useViewportSize()
+  const [formData, setFormData] = useState({
+    topic: '2022 UAE construction market size',
+    resultsAsString: '10',
+    results: 10
+  })
+  const [progress, setProgress] = useState(UserProgress.NONE)
+  useEffect(() => {
+    setProgress(UserProgress.START)
+  }, [])
 
-  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = event.target
-    setFormData({
-      ...formData,
-      [name]: value
-    })
-  }
-
-
-
+  const search = useCallback(async () => {
+    if (!loading && Number(formData.results) <= MAX_RESULTS) {
+      setLoading(LoadingTarget.GET_QUERY)
+      setFinalResult(null)
+      try {
+        const query = await getGoogleSearchQuery(formData);
+        console.log(query);
+        setLoading(LoadingTarget.DO_SEARCH);
+        const links = await getGoogleSearchResults(query, formData.results);
+        setLoading(LoadingTarget.GROUP_BY_TIER);
+        const tieredLinks = await groupLinks(links, formData.topic);
+        setLoading(LoadingTarget.PARSE_PAGE);
+        const finalResult = await parsePages(tieredLinks, () => { });
+        setLoading(null);
+        setFinalResult(finalResult);
+      } catch (e) {
+        console.log(e);
+        setLoading(null);
+        alert('Error');
+      }
+    }
+  }, [formData, loading])
 
   return (
-    <>
-      <div>
-        <form onSubmit={async (e) => {
-          e.preventDefault()
-          if (formData.results === '') {
-            formData.results = '10'
-            setFormData({ ...formData, results: '10' })
-          }
-          if (!loading && Number(formData.results) <= MAX_RESULTS) {
-            setLoading(LoadingTarget.GET_QUERY)
-            setFinalResult(null)
-            try {
-              const query = await getGoogleSearchQuery(formData);
-              console.log(query);
-              setLoading(LoadingTarget.DO_SEARCH);
-              const links = await getGoogleSearchResults(query, parseInt(formData.results));
-              setLoading(LoadingTarget.GROUP_BY_TIER);
-              const tieredLinks = await groupLinks(links, formData.topic);
-              setLoading(LoadingTarget.PARSE_PAGE);
-              const finalResult = await parsePages(tieredLinks, setCurrentParsing);
-              setLoading(null);
-              setFinalResult(finalResult);
-            } catch (e) {
-              console.log(e);
-              setLoading(null);
-              alert('Error');
-            }
-          }
-        }}>
-          <h1>Marsa Search</h1>
-          <label>
-            Topic:
-            <input type="text" name="topic" value={formData.topic} onChange={handleChange} />
-          </label>
-          <br />
-          <label>
-            Number of Results:
-            <input type="number" name="results" value={formData.results} onChange={handleChange} />
-          </label>
-          <br />
-          <div className='error'>
-            <h3>{error.results}</h3>
-          </div>
-          <button type="submit" disabled={!!loading || !!error.results}>Submit</button>
-          {
-            loading &&
-            <div className='loading'>
-              <h6>{loading}</h6>
-            </div>
-          }
-          {
-            currentParsing &&
-            <div className='parsing'>
-              {currentParsing.map((link, idx) => <p key={idx}>{shortenLink(link)}</p>)}
-            </div>
-          }
-          <div>
-            {
-              finalResult &&
-              <div
-                style={{
-                  marginBottom: '1rem',
-                  width: '400px',
+    <Container fluid={true} h={"100vh"}>
+      <Stack h={"100%"} align='center' justify='start' p={5}>
+        <Title mb={finalResult ? 0 : 300} order={1} className={`!text-5xl transition-all ${finalResult ? "translate-y-[0px]" : progress == UserProgress.LOADING? "translate-y-[150px]": "translate-y-[300px]"}`}>Data Hawk</Title>
+        <Transition
+          mounted={progress === UserProgress.START}
+          transition="fade-up"
+          duration={300}
+          timingFunction="ease"
+        >
+          {(style) => {
+            return <Stack
+              style={style}
+            >
+              <Title order={2} m={20}>Automate your research</Title>
+              <Button
+                size='xl' className='' radius={20}
+                onClick={() => {
+                  setProgress(UserProgress.ENTER_QUERY)
                 }}
+              >
+                <Group>
+                  <Text size='xl'>
+                    Get Started
+                  </Text>
+                  <ArrowRightIcon className='w-12 h-12'></ArrowRightIcon >
+                </Group>
+              </Button>
+            </Stack>
+          }
+          }
+        </Transition>
+        <Transition
+          mounted={progress === UserProgress.ENTER_QUERY}
+          // transition="fade-up"
+          transition={SlideInOut}
+          duration={300}
+          enterDelay={270}
+          timingFunction="ease"
+
+        >
+          {(styles) => {
+            return <Stack
+              style={styles}
+              align='center'
+              justify='flex-end'
+            >
+              <Title order={3}>Enter you topic</Title>
+              <TextInput size='xl'
+                classNames={
+                  {
+                    wrapper: "w-96",
+                  }
+                }
+                value={formData.topic} onChange={(e) => {
+                  setFormData({ ...formData, topic: e.currentTarget.value })
+                }} />
+              <Button
+                size='xl' className='' radius={20}
+                onClick={() => {
+                  setProgress(UserProgress.SELECT_RESULTS)
+                }}
+                style={styles}
+                disabled={formData.topic === ''}
+              >
+                Next
+              </Button>
+
+            </Stack>
+          }}
+        </Transition>
+        <Transition
+          mounted={progress === UserProgress.SELECT_RESULTS}
+          transition={SlideInOut}
+          duration={300}
+          enterDelay={270}
+          timingFunction="ease"
+        >
+          {(styles) => {
+            return <Stack
+              style={styles}
+              align='center'
+              justify='start'
+            >
+              <Title order={3}>Required number of results</Title>
+              <NumberInput max={20} size='xl'
+                classNames={
+                  {
+                    wrapper: "w-96",
+                  }
+                }
+                error={formData.results > 20 ? "Max 20 results" : undefined}
+                rightSection={<div></div>}
+                value={formData.resultsAsString} onChange={(e) => {
+                  setFormData({ ...formData, results: Number(e) })
+                }} />
+
+              <Button
+                size='xl' className='' radius={20}
+                onClick={() => {
+                  setProgress(UserProgress.LOADING)
+                  search()
+                }}
+                disabled={formData.results === 0}
+                style={styles}
+              >
+                Start Searching
+              </Button>
+            </Stack>
+          }}
+        </Transition>
+        <Transition
+          mounted={progress === UserProgress.LOADING}
+          transition={SlideInOut}
+          duration={300}
+          enterDelay={270}
+          timingFunction="ease"
+        >
+
+          {
+            (style) =>
+              <Text
+                style={style}
+                fw={900}
+                className='!text-5xl animate-pulse'
+              >
+                {loading}
+              </Text>
+          }
+        </Transition>
+        <Transition
+          mounted={finalResult !== null}
+          transition={SlideInOut}
+          duration={300}
+          enterDelay={270}
+          timingFunction="ease"
+        >
+
+          {
+            (style) =>
+              <Stack
+                style={style}
+                align='flex-start'
+                justify='flex-start'
+                w="100%"
+                gap={30}
               >
                 <MultiSelect
                   label='Filter by tier'
                   size='lg'
-                  data={[{ label: "Tier 1", value: "1" }, { label: "Tier 2", value: "2" }, { label: "Tier 3", value: "3" }]}
+                  data={[{ label: "Government Sources", value: "1" }, { label: "Newspapers & Reports", value: "2" }, { label: "Social Media", value: "3" }]}
                   value={filter}
                   onChange={setFilter}
+                  className='min-w-96'
                 />
-              </div>
-            }
-            {finalResult &&
-              <table>
-                <thead>
-                  <tr>
-                    <th>
-                      <div
-                        role='button'
-                        onClick={() => {
-                          setSort({
-                            key: "googleOrder",
-                            direction: sort.direction === "asc" ? "desc" : "asc"
-                          })
-                        }}
+                <Table
+                  // style={style}
+                  striped
+                  w={"100%"}
+                >
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th
                       >
-                        <p>
-                          Google Order
-                        </p>
-                        {
-                          sort.key === "googleOrder" && sort.direction === "asc" && <ArrowUpIcon></ArrowUpIcon>
-                        }
-                        {
-                          sort.key === "googleOrder" && sort.direction === "desc" && <ArrowDownIcon></ArrowDownIcon>
-                        }
-                      </div>
-                    </th>
-                    <th>
-                      <div
-                        role='button'
-                        onClick={() => {
-                          setSort({
-                            key: "tier",
-                            direction: sort.direction === "asc" ? "desc" : "asc"
-                          })
-                        }}
-                      >
-                        <p>
-                          Tier
-                        </p>
-                        {
-                          sort.key === "tier" && sort.direction === "asc" && <ArrowUpIcon></ArrowUpIcon>
-                        }
-                        {
-                          sort.key === "tier" && sort.direction === "desc" && <ArrowDownIcon></ArrowDownIcon>
-                        }
-                      </div>
-
-                    </th>
-                    <th>Source</th>
-                    <th>Value</th>
+                        <div
+                          onClick={() => {
+                            setSort({
+                              key: "googleOrder",
+                              direction: sort.direction === "asc" ? "desc" : "asc"
+                            })
+                          }}
+                          className='flex flex-row gap-1 items-center'
+                        >
+                          <Text fw={"bold"}>
+                            Google Order
+                          </Text>
+                          <div>
+                            {
+                              sort.key === "googleOrder" && sort.direction === "asc" && <ArrowUpIcon className='w-8 h-8'></ArrowUpIcon>
+                            }
+                            {
+                              sort.key === "googleOrder" && sort.direction === "desc" && <ArrowDownIcon className='w-8 h-8'></ArrowDownIcon>
+                            }
+                          </div>
+                        </div>
+                      </Table.Th>
+                      <Table.Th>
+                        <div
+                          onClick={() => {
+                            setSort({
+                              key: "tier",
+                              direction: sort.direction === "asc" ? "desc" : "asc"
+                            })
+                          }}
+                          className='flex flex-row gap-1 items-center'
+                        >
+                          <Text fw={"bold"}>
+                            Tier
+                          </Text>
+                          <div>
+                            {
+                              sort.key === "tier" && sort.direction === "asc" && <ArrowUpIcon className='w-8 h-8'></ArrowUpIcon>
+                            }
+                            {
+                              sort.key === "tier" && sort.direction === "desc" && <ArrowDownIcon className='w-8 h-8'></ArrowDownIcon>
+                            }
+                          </div>
+                        </div>
+                      </Table.Th>
+                      <Table.Th>
+                        Source
+                      </Table.Th>
+                      <Table.Th>
+                        Value
+                      </Table.Th>
+                      {
+                        width > 768 &&
+                        <Table.Th>
+                          Quote
+                        </Table.Th>
+                      }
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
                     {
-                      /**  
-                      <th>Future Value</th>
-                      **/
+                      sortedData?.map((item) => (
+                        <Table.Tr key={item.source}>
+                          <Table.Td>{item.googleOrder + 1}</Table.Td>
+                          <Table.Td>{
+                            item.tier === 1 ? "Government Sources" :
+                              item.tier === 2 ? "Newspapers & Reports" :
+                                item.tier === 3 ? "Social Media" : "Unknown"
+                          }</Table.Td>
+                          <Table.Td>
+                            <NavLink
+                              target="_blank"
+                              href={getTextFragmentLink(item.source, [item.quote[0]])}
+                              label={shortenLink(item.source)}
+                            >
+                            </NavLink>
+                          </Table.Td>
+                          <Table.Td>{item.current_value}</Table.Td>
+                          {
+                            width > 768 &&
+                            <Table.Td>{item.quote[0]}</Table.Td>
+                          }
+                        </Table.Tr>
+                      ))
                     }
-                    <th>Quote</th>
-                  </tr>
-                </thead>
-                <tbody>{
-                  sortedData.map((item) => filter.includes(item.tier.toString()) ? (
-                    <tr key={item.source}>
-                      <td>{item.googleOrder + 1}</td>
-                      <td>{item.tier}</td>
-                      <td><a href={getTextFragmentLink(item.source, [item.quote[0]])} target="_blank">{shortenLink(item.source)}</a></td>
-                      <td>{item.current_value}</td>
-                      {/* <td>{item.future_value}</td> */}
-                      <td>
-                        {/* <ul> */}
-                        {/* {item.quote.map((quote, i) => <li key={i}>{quote}</li>)} */}
-                        {/* </ul> */}
-                        {
-                          <p>
-                            {item.quote[0]}
-                          </p>
-                        }
-                      </td>
-                    </tr>
-                  ) : null)}
-                </tbody>
-              </table>
-            }
-          </div>
-
-        </form>
-      </div>
-    </>
+                  </Table.Tbody>
+                </Table>
+              </Stack>
+          }
+        </Transition>
+      </Stack >
+    </Container >
   )
 }
+
 
 function getTextFragmentLink(link: string, fragments: string[]) {
   let linkOut = link + "#:~:text=";

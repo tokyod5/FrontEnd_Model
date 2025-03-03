@@ -70,11 +70,11 @@ function Upload() {
           }}
         >
           <input
-            type="file"
-            accept=".skp"
-            onChange={handleFileChange}
-            style={{ display: 'none' }}
-            id="file-upload"
+               type="file"
+               accept=".skp,application/octet-stream"
+               onChange={handleFileChange}
+               style={{ display: 'none' }}
+               id="file-upload"
           />
           <label htmlFor="file-upload">
             <Group align="center" gap="sm" justify="center">

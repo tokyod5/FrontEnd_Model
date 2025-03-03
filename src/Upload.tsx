@@ -1,7 +1,9 @@
 import React, { useState, ChangeEvent } from 'react';
-import { Button, Container, Group, Text, Title, Loader, Notification } from '@mantine/core';
+import { Button, Container, Stack, Group, Text, Title, Loader, Notification, Image } from '@mantine/core';
 import { IconUpload, IconCheck, IconX } from '@tabler/icons-react';
 import { uploadFileToAPI } from './api';
+import logo from './assets/logo_1.png';
+import './App.css';
 
 function Upload() {
   const [file, setFile] = useState<File | null>(null);
@@ -22,7 +24,6 @@ function Upload() {
         setError('Only .skp files are allowed');
       }
 
-      // Reset input to allow re-uploading the same file
       event.target.value = '';
     }
   };
@@ -38,7 +39,7 @@ function Upload() {
         const result = await uploadFileToAPI(file);
 
         setUploading(false);
-        if (result.success && result.download_url) {  // ✅ Only success if download_url exists
+        if (result.success && result.download_url) {
             setDownloadUrl(result.download_url);
         } else {
             setError(result.error || "File conversion failed on the server.");
@@ -47,55 +48,72 @@ function Upload() {
         setUploading(false);
         setError("An unexpected error occurred. Please check your connection.");
     }
-};
-
+  };
 
   return (
-    <Container size="sm" className="upload-container" style={{ textAlign: 'center', paddingTop: 50 }}>
-      <Title order={2}>Upload Your 3D Model</Title>
-      <Text>Select a file to convert</Text>
+    <Container fluid h="100vh" style={{ backgroundColor: '#FFFFFF', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+      <Stack align="center" justify="center" gap={30} style={{ width: '100%', maxWidth: '600px', textAlign: 'center' }}>
+        <Image w={300} src={logo} alt="Model Sync Logo" />
+        
+        <Title order={2} style={{ fontSize: '22px', fontWeight: 'bold', color: '#000000' }}>Upload Your 3D Model</Title>
+        <Text size="md" color="#545454">Select a file to convert</Text>
 
-      <div
-        style={{
-          border: '2px dashed #545454',
-          padding: '20px',
-          borderRadius: '10px',
-          marginTop: '20px',
-          cursor: 'pointer',
-        }}
-      >
-        <input
-          type="file"
-          accept=".skp"
-          onChange={handleFileChange}
-          style={{ display: 'none' }}
-          id="file-upload"
-        />
-        <label htmlFor="file-upload">
-          <Group align="center" gap="md">
-            {file ? <IconCheck size={32} color="green" /> : <IconUpload size={32} />}
-            <Text size="lg">{file ? file.name : 'Click or drag file here'}</Text>
-          </Group>
-        </label>
-      </div>
-
-      {error && (
-        <Notification color="red" mt="sm" withCloseButton={false}>
-          <IconX size={16} /> {error}
-        </Notification>
-      )}
-
-      <Button size="md" mt="lg" onClick={handleUpload} disabled={!file || uploading}>
-        {uploading ? <Loader size="sm" /> : 'Convert File'}
-      </Button>
-
-      {downloadUrl && (
-        <div style={{ marginTop: 20 }}>
-          <a href={downloadUrl} download>
-            <Button color="green">Download Converted File</Button>
-          </a>
+        <div
+          style={{
+            border: '2px dashed #545454',
+            padding: '12px',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            width: '65%',
+            backgroundColor: '#FAFAFA',
+            textAlign: 'center'
+          }}
+        >
+          <input
+            type="file"
+            accept=".skp"
+            onChange={handleFileChange}
+            style={{ display: 'none' }}
+            id="file-upload"
+          />
+          <label htmlFor="file-upload">
+            <Group align="center" gap="sm" justify="center">
+              {file ? <IconCheck size={28} color="green" /> : <IconUpload size={28} color="#888" />}
+              <Text size="md" color="#333">{file ? file.name : 'Click or drag file here'}</Text>
+            </Group>
+          </label>
         </div>
-      )}
+
+        {error && (
+          <Notification color="red" mt="sm" withCloseButton={false}>
+            <IconX size={16} /> {error}
+          </Notification>
+        )}
+
+        <Button 
+          size="md" 
+          onClick={handleUpload} 
+          disabled={!file || uploading} 
+          style={{ 
+            backgroundColor: file ? '#000000' : '#B0B0B0',
+            color: '#FFFFFF', 
+            padding: '12px 30px', 
+            fontSize: '16px', 
+            borderRadius: '6px', 
+            cursor: file ? 'pointer' : 'not-allowed' 
+          }}
+        >
+          {uploading ? <Loader size="sm" /> : 'Convert File'}
+        </Button>
+
+        {downloadUrl && (
+          <div style={{ marginTop: 15 }}>
+            <a href={downloadUrl} download>
+              <Button color="green" size="md" style={{ padding: '12px 30px', fontSize: '16px' }}>Download Converted File</Button>
+            </a>
+          </div>
+        )}
+      </Stack>
     </Container>
   );
 }

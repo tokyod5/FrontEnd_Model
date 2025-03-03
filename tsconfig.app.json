@@ -11,8 +11,8 @@
     ],
     "module": "ESNext",
     "skipLibCheck": true,
-    /* Module Resolution */
-    "moduleResolution": "bundler", // Revert to "bundler" for compatibility with React
+    /* Bundler mode */
+    "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "moduleDetection": "force",
@@ -23,10 +23,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true,
-    /* Allow JavaScript Imports */
-    "allowJs": true, // Allow importing .js files
-    "checkJs": true  // Optional: Enable type-checking for .js files
+    "noUncheckedSideEffectImports": true
   },
   "include": [
     "src"

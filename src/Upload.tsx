@@ -1,4 +1,4 @@
-import React, { useState, ChangeEvent } from 'react';
+import  { useState, ChangeEvent } from 'react';
 import { Button, Container, Stack, Group, Text, Title, Loader, Notification, Image } from '@mantine/core';
 import { IconUpload, IconCheck, IconX } from '@tabler/icons-react';
 import { uploadFileToAPI } from './api';

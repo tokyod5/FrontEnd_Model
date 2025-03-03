@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { useNavigate } from 'react-router-dom';
 import { Button, Container, Stack, Text, Image, Group } from '@mantine/core';
 import { ArrowRightIcon } from '@radix-ui/react-icons';

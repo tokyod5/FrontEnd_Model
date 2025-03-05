@@ -13,7 +13,7 @@ interface UploadResponse {
       formData.append("file", file);
   
       try {
-          const response = await fetch("https://n8n.haasch.com/webhook-test/2327ec2b-3988-4cd2-8c92-fe50bdec4740", {
+          const response = await fetch("https://n8n.haasch.com/webhook/2327ec2b-3988-4cd2-8c92-fe50bdec4740", {
               method: "POST",
               body: formData,
           });

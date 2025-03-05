@@ -1,4 +1,4 @@
-import  { useState, ChangeEvent } from 'react';
+import { useState, ChangeEvent } from 'react';
 import { Button, Container, Stack, Group, Text, Title, Loader, Notification, Image } from '@mantine/core';
 import { IconUpload, IconCheck, IconX } from '@tabler/icons-react';
 import { uploadFileToAPI } from './api';
@@ -36,17 +36,17 @@ function Upload() {
     setDownloadUrl(null);
 
     try {
-        const result = await uploadFileToAPI(file);
+      const result = await uploadFileToAPI(file);
 
-        setUploading(false);
-        if (result.success && result.download_url) {
-            setDownloadUrl(result.download_url);
-        } else {
-            setError(result.error || "File conversion failed on the server.");
-        }
+      setUploading(false);
+      if (result.success && result.download_url) {
+        setDownloadUrl(result.download_url);
+      } else {
+        setError(result.error || "File conversion failed on the server.");
+      }
     } catch (err) {
-        setUploading(false);
-        setError("An unexpected error occurred. Please check your connection.");
+      setUploading(false);
+      setError("An unexpected error occurred. Please check your connection.");
     }
   };
 
@@ -54,7 +54,7 @@ function Upload() {
     <Container fluid h="100vh" style={{ backgroundColor: '#FFFFFF', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
       <Stack align="center" justify="center" gap={30} style={{ width: '100%', maxWidth: '600px', textAlign: 'center' }}>
         <Image w={300} src={logo} alt="Model Sync Logo" />
-        
+
         <Title order={2} style={{ fontSize: '22px', fontWeight: 'bold', color: '#000000' }}>Upload Your 3D Model</Title>
         <Text size="md" color="#545454">Select a file to convert</Text>
 
@@ -70,11 +70,11 @@ function Upload() {
           }}
         >
           <input
-               type="file"
-               accept=".skp,application/octet-stream"
-               onChange={handleFileChange}
-               style={{ display: 'none' }}
-               id="file-upload"
+            type="file"
+            accept=".skp,application/octet-stream"
+            onChange={handleFileChange}
+            style={{ display: 'none' }}
+            id="file-upload"
           />
           <label htmlFor="file-upload">
             <Group align="center" gap="sm" justify="center">
@@ -90,17 +90,17 @@ function Upload() {
           </Notification>
         )}
 
-        <Button 
-          size="md" 
-          onClick={handleUpload} 
-          disabled={!file || uploading} 
-          style={{ 
+        <Button
+          size="md"
+          onClick={handleUpload}
+          disabled={!file || uploading}
+          style={{
             backgroundColor: file ? '#000000' : '#B0B0B0',
-            color: '#FFFFFF', 
-            padding: '12px 30px', 
-            fontSize: '16px', 
-            borderRadius: '6px', 
-            cursor: file ? 'pointer' : 'not-allowed' 
+            color: '#FFFFFF',
+            padding: '12px 30px',
+            fontSize: '16px',
+            borderRadius: '6px',
+            cursor: file ? 'pointer' : 'not-allowed'
           }}
         >
           {uploading ? <Loader size="sm" /> : 'Convert File'}
@@ -108,14 +108,34 @@ function Upload() {
 
         {downloadUrl && (
           <div style={{ marginTop: 15 }}>
-            <a href={downloadUrl} download>
-              <Button color="green" size="md" style={{ padding: '12px 30px', fontSize: '16px' }}>Download Converted File</Button>
-            </a>
+            {/* <a href={`https://n8n.haasch.com/webhook/2327ec2b-3988-4cd2-8c92-fe50bdec4740?download=${encodeURIComponent(downloadUrl)}`} download={downloadUrl.split("/")[2]}> */}
+            <Button
+              onClick={() => {
+                downloadFile(`https://n8n.haasch.com/webhook/2327ec2b-3988-4cd2-8c92-fe50bdec4740?download=${encodeURIComponent(downloadUrl)}`, downloadUrl.split("/")[2])
+              }}
+              color="green" size="md" style={{ padding: '12px 30px', fontSize: '16px' }}>Download Converted File</Button>
+            {/* </a> */}
           </div>
         )}
       </Stack>
     </Container>
   );
 }
+
+function downloadFile(url: string, name: string) {
+  fetch(url)
+    .then(response => response.blob()).then(blob => {
+      const file = new File([blob], name);
+      const url = URL.createObjectURL(file);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    })
+}
+
 
 export default Upload;
